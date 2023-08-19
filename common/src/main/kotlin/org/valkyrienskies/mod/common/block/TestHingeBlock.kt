@@ -176,8 +176,9 @@ object TestHingeBlock :
                         newPos,
                         ship.transform.positionInShip,
                         shipThisIsIn.transform.shipToWorldRotation, // Copy source ship rotation
-                        ship.transform.shipToWorldScaling
+                        shipThisIsIn.transform.shipToWorldScaling  // Copy source ship scaling
                     )
+
                     // Update the ship transform
                     (ship as ShipDataCommon).transform = newTransform
                 } else {
@@ -199,18 +200,20 @@ object TestHingeBlock :
                 val shipId0 = shipThisIsIn?.id ?: level.shipObjectWorld.dimensionToGroundBodyIdImmutable[level.dimensionId]!!
                 val shipId1 = ship.id
 
+                blockEntity.get().attachmentLocalPos0 = attachmentLocalPos0
+                blockEntity.get().attachmentLocalPos1 = attachmentLocalPos1
+                blockEntity.get().mainShipId = shipId0
+                blockEntity.get().otherShipId = shipId1
+
                 // Attachment constraint
                 run {
                     // I don't recommend setting compliance lower than 1e-10 because it tends to cause instability
                     // TODO: Investigate why small compliance cause instability
-                    val attachmentCompliance = 1e-10
-                    val attachmentMaxForce = 1e10
-                    val attachmentFixedDistance = 0.0
                     val attachmentConstraint = VSAttachmentConstraint(
-                        shipId0, shipId1, attachmentCompliance, attachmentLocalPos0, attachmentLocalPos1,
-                        attachmentMaxForce, attachmentFixedDistance
+                        shipId0, shipId1, 1e-10, attachmentLocalPos0, attachmentLocalPos1,
+                        1e10, 0.0
                     )
-                    blockEntity.get().constraintId = level.shipObjectWorld.createNewConstraint(attachmentConstraint)
+                    blockEntity.get().attachmentConstraintId = level.shipObjectWorld.createNewConstraint(attachmentConstraint)
                 }
 
                 // Hinge constraints will attempt to align the X-axes of both bodies, so to align the Y axis we
@@ -220,12 +223,11 @@ object TestHingeBlock :
                 // Hinge orientation constraint
                 run {
                     // I don't recommend setting compliance lower than 1e-10 because it tends to cause instability
-                    val hingeOrientationCompliance = 1e-10
-                    val hingeMaxTorque = 1e10
                     val hingeConstraint = VSHingeOrientationConstraint(
-                        shipId0, shipId1, hingeOrientationCompliance, hingeOrientation, hingeOrientation, hingeMaxTorque
+                        shipId0, shipId1, 1e-10, hingeOrientation, hingeOrientation, 1e10
                     )
-                    blockEntity.get().constraintId = level.shipObjectWorld.createNewConstraint(hingeConstraint)
+                    blockEntity.get().orientation = hingeOrientation;
+                    blockEntity.get().orientationConstraintId = level.shipObjectWorld.createNewConstraint(hingeConstraint)
                 }
 
                 // Add position damping to make the hinge more stable
@@ -239,6 +241,8 @@ object TestHingeBlock :
                 // Add parallel rotation damping to prevent the hinge from spinning forever
                 // val parallelRotDampingConstraint = VSRotDampingConstraint(shipId0, shipId1, 0.0, hingeOrientation, hingeOrientation, 1e10, 1e-1, PARALLEL)
                 // blockEntity.get().constraintId = level.shipObjectWorld.createNewConstraint(parallelRotDampingConstraint)
+
+                level.sendBlockUpdated(pos, state, state, Block.UPDATE_ALL_IMMEDIATE)
             }
         }
         return InteractionResult.CONSUME
